@@ -33,6 +33,13 @@ class VAEXperiment(pl.LightningModule):
 
     def training_step(self, batch, batch_idx, optimizer_idx = 0):
         real_img, labels = batch
+        
+        # Ensure tensors are on the correct device
+        if hasattr(self, 'device'):
+            real_img = real_img.to(self.device)
+            if labels is not None:
+                labels = labels.to(self.device)
+        
         self.curr_device = real_img.device
 
         results = self.forward(real_img, labels = labels)
@@ -47,6 +54,13 @@ class VAEXperiment(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx, optimizer_idx = 0):
         real_img, labels = batch
+        
+        # Ensure tensors are on the correct device
+        if hasattr(self, 'device'):
+            real_img = real_img.to(self.device)
+            if labels is not None:
+                labels = labels.to(self.device)
+        
         self.curr_device = real_img.device
 
         results = self.forward(real_img, labels = labels)
@@ -69,9 +83,13 @@ class VAEXperiment(pl.LightningModule):
 
 #         test_input, test_label = batch
         recons = self.model.generate(test_input, labels = test_label)
+        
+        # Ensure the Reconstructions directory exists
+        recons_dir = os.path.join(self.logger.log_dir, "Reconstructions")
+        os.makedirs(recons_dir, exist_ok=True)
+        
         vutils.save_image(recons.data,
-                          os.path.join(self.logger.log_dir , 
-                                       "Reconstructions", 
+                          os.path.join(recons_dir, 
                                        f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
                           normalize=True,
                           nrow=12)
@@ -80,9 +98,13 @@ class VAEXperiment(pl.LightningModule):
             samples = self.model.sample(144,
                                         self.curr_device,
                                         labels = test_label)
+            
+            # Ensure the Samples directory exists
+            samples_dir = os.path.join(self.logger.log_dir, "Samples")
+            os.makedirs(samples_dir, exist_ok=True)
+            
             vutils.save_image(samples.cpu().data,
-                              os.path.join(self.logger.log_dir , 
-                                           "Samples",      
+                              os.path.join(samples_dir,      
                                            f"{self.logger.name}_Epoch_{self.current_epoch}.png"),
                               normalize=True,
                               nrow=12)
@@ -111,14 +133,22 @@ class VAEXperiment(pl.LightningModule):
             if self.params['scheduler_gamma'] is not None:
                 scheduler = optim.lr_scheduler.ExponentialLR(optims[0],
                                                              gamma = self.params['scheduler_gamma'])
-                scheds.append(scheduler)
+                scheds.append({
+                    'scheduler': scheduler,
+                    'interval': 'epoch',
+                    'frequency': 1
+                })
 
                 # Check if another scheduler is required for the second optimizer
                 try:
                     if self.params['scheduler_gamma_2'] is not None:
                         scheduler2 = optim.lr_scheduler.ExponentialLR(optims[1],
                                                                       gamma = self.params['scheduler_gamma_2'])
-                        scheds.append(scheduler2)
+                        scheds.append({
+                            'scheduler': scheduler2,
+                            'interval': 'epoch',
+                            'frequency': 1
+                        })
                 except:
                     pass
                 return optims, scheds
