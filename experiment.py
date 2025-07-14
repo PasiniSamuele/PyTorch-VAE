@@ -73,7 +73,7 @@ class VAEXperiment(pl.LightningModule):
 
         
     def on_validation_end(self) -> None:
-        self.sample_images()
+        pass
         
     def sample_images(self):
         # Get sample reconstruction image            
